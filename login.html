@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Campus Event Management System</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <a href="register.html" class="nav-link register-link">Register</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="auth-main">
+        <div class="auth-container">
+            <div class="auth-form-wrapper">
+                <h1>Welcome Back</h1>
+                <p class="auth-subtitle">Sign in to your account</p>
+
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="you@example.com"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••"
+                            required
+                        >
+                    </div>
+
+                    <div id="errorMessage" class="error-message"></div>
+
+                    <button type="submit" class="auth-button">Sign In</button>
+                </form>
+
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="register.html">Register here</a></p>
+                </div>
+
+                <!-- Demo Credentials -->
+                <div class="demo-credentials">
+                    <h4>Demo Credentials:</h4>
+                    <div class="demo-item">
+                        <strong>Student:</strong> student@example.com / password123
+                    </div>
+                    <div class="demo-item">
+                        <strong>Organizer:</strong> organizer@example.com / password123
+                    </div>
+                    <div class="demo-item">
+                        <strong>Admin:</strong> admin@example.com / password123
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setupHamburger();
+            setupLoginForm();
+
+            // Redirect if already logged in
+            if (getCurrentUser()) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+
+        function setupLoginForm() {
+            const form = document.getElementById('loginForm');
+            const errorDiv = document.getElementById('errorMessage');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errorDiv.textContent = '';
+
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+
+                if (!email || !password) {
+                    errorDiv.textContent = 'Please fill in all fields';
+                    return;
+                }
+
+                const result = await loginUser(email, password);
+                
+                if (result.success) {
+                    // Show success message
+                    errorDiv.style.color = '#4caf50';
+                    errorDiv.textContent = 'Login successful! Redirecting...';
+                    
+                    setTimeout(() => {
+                        redirectBasedOnRole(result.data.role);
+                    }, 1000);
+                } else {
+                    errorDiv.style.color = '';
+                    errorDiv.textContent = result.message || 'Invalid email or password';
+                }
+            });
+        }
+
+        function redirectBasedOnRole(role) {
+            if (role === 'admin' || role === 'organizer') {
+                window.location.href = 'dashboard.html';
+            } else {
+                window.location.href = 'events.html';
+            }
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

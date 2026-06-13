@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Event Management System - Home</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <div id="auth-nav"></div>
+                <a href="#" onclick="toggleDarkMode(event)" class="nav-link dark-mode-toggle">🌙</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loader -->
+    <div class="loader-container" id="loaderContainer">
+        <div class="brand-loader" aria-hidden="true">
+            <div class="logo-ring" aria-hidden="true">
+                <div class="loader-core"><div class="ring-anim" aria-hidden="true"></div></div>
+            </div>
+            <div class="brand-text" aria-hidden="true">
+                <span>C</span><span>A</span><span>M</span><span>P</span><span>U</span><span>S</span>
+                <span class="space"></span>
+                <span>E</span><span>V</span><span>E</span><span>N</span><span>T</span><span>S</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent" style="display: none;">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1>Discover Amazing Campus Events</h1>
+                <p>Connect with your community. Find events that matter to you.</p>
+                <button class="cta-button" id="ctaButton">Get Started</button>
+            </div>
+            <div class="hero-image">
+                <div class="hero-placeholder">🎉</div>
+            </div>
+        </section>
+
+        <!-- Upcoming Events Preview -->
+        <section class="preview-section">
+            <div class="container">
+                <h2>Featured Events</h2>
+                <div class="events-preview" id="eventsPreview">
+                    <div class="skeleton-loader"></div>
+                    <div class="skeleton-loader"></div>
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div class="preview-actions">
+                    <a href="events.html" class="link-button">View All Events →</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Why This System Section -->
+        <section class="features-section">
+            <div class="container">
+                <h2>Why Use Campus Events?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h3>Discover</h3>
+                        <p>Find events that match your interests and schedule</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>Register</h3>
+                        <p>Easy registration with just a few clicks</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <h3>Connect</h3>
+                        <p>Meet people with shared interests at events</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>Manage</h3>
+                        <p>Easily manage your event registrations</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <p>&copy; 2026 Campus Event Management System. All rights reserved.</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script>
+        // Home page initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            renderNavbar();
+            setupHamburger();
+            initializeHomePage();
+            setupEventListeners();
+        });
+        function initializeHomePage() {
+            const loaderContainer = document.getElementById('loaderContainer');
+            const mainContent = document.getElementById('mainContent');
+
+            // Simulate loading delay and use unified finishLoading for smooth fade
+            setTimeout(() => {
+                finishLoading('mainContent', 1000, async () => {
+                    await loadFeaturedEvents();
+                });
+            }, 800);
+        }
+
+        async function loadFeaturedEvents() {
+            const allEvs = await getAllEvents();
+            const events = allEvs.slice(0, 3);
+            const preview = document.getElementById('eventsPreview');
+            
+            preview.innerHTML = '';
+            
+            if (events.length === 0) {
+                preview.innerHTML = '<p class="empty-state">No events available yet. Check back soon!</p>';
+                return;
+            }
+
+            events.forEach(event => {
+                const eventCard = createEventCard(event);
+                preview.appendChild(eventCard);
+            });
+        }
+        function createEventCard(event) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            const seatsLeft = event.maxCapacity - event.attendees.length;
+            const isAlmost = seatsLeft <= 2;
+
+            card.innerHTML = `
+                <div class="event-card-header">
+                    <h3>${event.name}</h3>
+                    <span class="category-badge">${event.category}</span>
+                </div>
+                <p class="event-date">📅 ${formatDate(event.date)}</p>
+                <p class="event-venue">📍 ${event.venue}</p>
+                <div class="event-footer">
+                    <span class="seats-info ${isAlmost ? 'almost-full' : ''}">
+                        ${seatsLeft} seats left
+                    </span>
+                    <a href="event-details.html?id=${event.id}" class="view-btn">View Details</a>
+                </div>
+            `;
+            return card;
+        }
+
+        function setupEventListeners() {
+            const ctaButton = document.getElementById('ctaButton');
+            const currentUser = getCurrentUser();
+
+            ctaButton.addEventListener('click', () => {
+                if (currentUser) {
+                    window.location.href = 'events.html';
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+
+        function renderNavbar() {
+            const authNav = document.getElementById('auth-nav');
+            const currentUser = getCurrentUser();
+
+            if (currentUser) {
+                authNav.innerHTML = `
+                    <a href="dashboard.html" class="nav-link">Dashboard</a>
+                    <button class="nav-link logout-btn" onclick="logoutUser()">Logout</button>
+                `;
+            } else {
+                authNav.innerHTML = `
+                    <a href="login.html" class="nav-link">Login</a>
+                    <a href="register.html" class="nav-link register-link">Register</a>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Details - Campus Event Management System</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <div id="auth-nav"></div>
+                <a href="#" onclick="toggleDarkMode(event)" class="nav-link dark-mode-toggle">🌙</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loader -->
+    <div class="loader-container" id="loaderContainer">
+        <div class="brand-loader" aria-hidden="true">
+            <div class="logo-ring" aria-hidden="true">
+                <div class="loader-core"><div class="ring-anim" aria-hidden="true"></div></div>
+            </div>
+            <div class="brand-text" aria-hidden="true">
+                <span>C</span><span>A</span><span>M</span><span>P</span><span>U</span><span>S</span>
+                <span class="space"></span>
+                <span>E</span><span>V</span><span>E</span><span>N</span><span>T</span><span>S</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent" style="display: none;">
+        <div class="container">
+            <a href="events.html" class="back-link">← Back to Events</a>
+
+            <div class="event-details-wrapper" id="eventDetailsWrapper">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <p>&copy; 2026 Campus Event Management System. All rights reserved.</p>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Error Page -->
+    <div id="errorPage" class="error-page" style="display: none;">
+        <div class="error-content">
+            <h1>Event Not Found</h1>
+            <p>The event you're looking for doesn't exist.</p>
+            <a href="events.html" class="link-button">Browse All Events</a>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/events.js"></script>
+    <script>
+        let currentEvent = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderNavbar();
+            setupHamburger();
+            initializeEventDetailsPage();
+        });
+
+        function initializeEventDetailsPage() {
+            const loaderContainer = document.getElementById('loaderContainer');
+            const mainContent = document.getElementById('mainContent');
+            const errorPage = document.getElementById('errorPage');
+
+            // Get event ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const eventId = urlParams.get('id');
+
+            if (!eventId) {
+                showErrorPage();
+                return;
+            }
+
+            // Simulate loading delay and use finishLoading for a smoother exit
+            setTimeout(async () => {
+                const event = await getEventById(eventId);
+
+                if (!event) {
+                    // hide loader with fade then show error
+                    finishLoading('mainContent', 900, () => {
+                        document.getElementById('loaderContainer').setAttribute('hidden', '');
+                        errorPage.style.display = 'flex';
+                    });
+                    return;
+                }
+
+                currentEvent = event;
+                finishLoading('mainContent', 900, () => {
+                    renderEventDetails();
+                });
+            }, 800);
+        }
+
+        function renderEventDetails() {
+            if (!currentEvent) return;
+
+            const wrapper = document.getElementById('eventDetailsWrapper');
+            const currentUser = getCurrentUser();
+            const seatsLeft = currentEvent.maxCapacity - currentEvent.attendees.length;
+            const isAttending = currentUser && currentEvent.attendees.includes(currentUser.id);
+            const isFull = seatsLeft <= 0;
+
+            let actionBtn = '';
+            if (currentUser && currentUser.role === 'student') {
+                if (isAttending) {
+                    actionBtn = `
+                        <button class="unregister-btn large-btn" onclick="unregisterAndRefresh()">
+                            Unregister from Event
+                        </button>
+                    `;
+                } else if (isFull) {
+                    actionBtn = `<button class="register-btn large-btn" disabled>Event is Full</button>`;
+                } else {
+                    actionBtn = `
+                        <button class="register-btn large-btn" onclick="registerAndRefresh()">
+                            Register for Event
+                        </button>
+                    `;
+                }
+            }
+
+            wrapper.innerHTML = `
+                <div class="event-details">
+                    <div class="event-details-header">
+                        <h1>${currentEvent.name}</h1>
+                        <span class="category-badge">${currentEvent.category}</span>
+                    </div>
+
+                    <div class="event-details-grid">
+                        <div class="details-column">
+                            <div class="detail-section">
+                                <h3>📅 Date & Time</h3>
+                                <p>${formatDate(currentEvent.date)}</p>
+                                <p class="detail-subtext">${currentEvent.time || 'Time TBA'}</p>
+                            </div>
+
+                            <div class="detail-section">
+                                <h3>📍 Venue</h3>
+                                <p>${currentEvent.venue}</p>
+                            </div>
+
+                            <div class="detail-section">
+                                <h3>👤 Organizer</h3>
+                                <p>${currentEvent.organizer}</p>
+                            </div>
+
+                            <div class="detail-section">
+                                <h3>👥 Capacity</h3>
+                                <div class="capacity-info">
+                                    <p>${currentEvent.attendees.length} / ${currentEvent.maxCapacity} registered</p>
+                                    <div class="capacity-bar">
+                                        <div class="capacity-filled" style="width: ${(currentEvent.attendees.length / currentEvent.maxCapacity) * 100}%"></div>
+                                    </div>
+                                    <p class="seats-info ${seatsLeft <= 2 ? 'almost-full' : ''}">
+                                        ${isFull ? 'Event is Full' : seatsLeft + ' seats available'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="details-column">
+                            <div class="detail-section">
+                                <h3>📝 Description</h3>
+                                <p>${currentEvent.description}</p>
+                            </div>
+
+                            <div class="detail-section">
+                                <h3>🎯 Event Details</h3>
+                                <ul class="detail-list">
+                                    <li><strong>Category:</strong> ${currentEvent.category}</li>
+                                    <li><strong>Duration:</strong> ${currentEvent.duration || 'TBA'}</li>
+                                    <li><strong>Type:</strong> ${currentEvent.type || 'In-person'}</li>
+                                </ul>
+                            </div>
+
+                            <div class="action-section">
+                                ${actionBtn}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function registerAndRefresh() {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const result = await registerUserForEvent(currentUser.id, currentEvent.id);
+            if (result.success) {
+                currentEvent = await getEventById(currentEvent.id);
+                renderEventDetails();
+                showNotification('Successfully registered for event!', 'success');
+            } else {
+                showNotification(result.message, 'error');
+            }
+        }
+
+        async function unregisterAndRefresh() {
+            const currentUser = getCurrentUser();
+            if (!currentUser) return;
+
+            const result = await unregisterUserFromEvent(currentUser.id, currentEvent.id);
+            if (result.success) {
+                currentEvent = await getEventById(currentEvent.id);
+                renderEventDetails();
+                showNotification('Successfully unregistered from event', 'success');
+            } else {
+                showNotification(result.message, 'error');
+            }
+        }
+
+        function showErrorPage() {
+            document.getElementById('loaderContainer').style.display = 'none';
+            document.getElementById('errorPage').style.display = 'flex';
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+
+        function renderNavbar() {
+            const authNav = document.getElementById('auth-nav');
+            const currentUser = getCurrentUser();
+
+            if (currentUser) {
+                authNav.innerHTML = `
+                    <a href="dashboard.html" class="nav-link">Dashboard</a>
+                    <a href="my-events.html" class="nav-link">My Events</a>
+                    <button class="nav-link logout-btn" onclick="logoutUser()">Logout</button>
+                `;
+            } else {
+                authNav.innerHTML = `
+                    <a href="login.html" class="nav-link">Login</a>
+                    <a href="register.html" class="nav-link register-link">Register</a>
+                `;
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

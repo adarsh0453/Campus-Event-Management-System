@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Event - Campus Event Management System</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <button class="nav-link logout-btn" onclick="logoutUser()">Logout</button>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="auth-main">
+        <div class="auth-container">
+            <div class="auth-form-wrapper" style="max-width: 600px;">
+                <h1>Create New Event</h1>
+                <p class="auth-subtitle">Fill in the event details</p>
+
+                <form id="createEventForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="eventName">Event Name *</label>
+                        <input 
+                            type="text" 
+                            id="eventName" 
+                            name="eventName" 
+                            placeholder="e.g., Web Development Workshop"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Description *</label>
+                        <textarea 
+                            id="description" 
+                            name="description" 
+                            placeholder="Describe your event..."
+                            rows="4"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">Category *</label>
+                        <select id="category" name="category" required>
+                            <option value="">Select category</option>
+                            <option value="Academic">Academic</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Cultural">Cultural</option>
+                            <option value="Social">Social</option>
+                            <option value="Workshop">Workshop</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="eventDate">Date *</label>
+                            <input 
+                                type="date" 
+                                id="eventDate" 
+                                name="eventDate"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="eventTime">Time</label>
+                            <input 
+                                type="time" 
+                                id="eventTime" 
+                                name="eventTime"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="venue">Venue *</label>
+                        <input 
+                            type="text" 
+                            id="venue" 
+                            name="venue" 
+                            placeholder="e.g., Auditorium A, Room 101"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxCapacity">Maximum Capacity *</label>
+                        <input 
+                            type="number" 
+                            id="maxCapacity" 
+                            name="maxCapacity" 
+                            placeholder="100"
+                            min="1"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="eventType">Event Type</label>
+                        <select id="eventType" name="eventType">
+                            <option value="In-person">In-person</option>
+                            <option value="Online">Online</option>
+                            <option value="Hybrid">Hybrid</option>
+                        </select>
+                    </div>
+
+                    <div id="errorMessage" class="error-message"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="auth-button">Create Event</button>
+                        <a href="dashboard.html" class="cancel-button">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/events.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setupHamburger();
+            checkAuthForOrganizerAdmin();
+            setupCreateEventForm();
+        });
+
+        function checkAuthForOrganizerAdmin() {
+            const currentUser = getCurrentUser();
+            
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            if (currentUser.role !== 'admin' && currentUser.role !== 'organizer') {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+        }
+
+        function setupCreateEventForm() {
+            const form = document.getElementById('createEventForm');
+            const errorDiv = document.getElementById('errorMessage');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errorDiv.textContent = '';
+
+                const eventName = document.getElementById('eventName').value.trim();
+                const description = document.getElementById('description').value.trim();
+                const category = document.getElementById('category').value;
+                const date = document.getElementById('eventDate').value;
+                const time = document.getElementById('eventTime').value;
+                const venue = document.getElementById('venue').value.trim();
+                const maxCapacity = parseInt(document.getElementById('maxCapacity').value);
+                const type = document.getElementById('eventType').value;
+
+                // Validation
+                if (!eventName || !description || !category || !date || !venue || !maxCapacity) {
+                    errorDiv.textContent = 'Please fill in all required fields';
+                    return;
+                }
+
+                if (maxCapacity < 1) {
+                    errorDiv.textContent = 'Capacity must be at least 1';
+                    return;
+                }
+
+                const currentUser = getCurrentUser();
+
+                const result = await createEvent({
+                    name: eventName,
+                    description: description,
+                    category: category,
+                    date: date,
+                    time: time || 'TBA',
+                    venue: venue,
+                    maxCapacity: maxCapacity,
+                    type: type,
+                    organizer: currentUser.name,
+                    organizerId: currentUser.id
+                });
+
+                if (result.success) {
+                    errorDiv.style.color = '#4caf50';
+                    errorDiv.textContent = 'Event created successfully! Redirecting...';
+                    
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = result.message || 'Error creating event';
+                }
+            });
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

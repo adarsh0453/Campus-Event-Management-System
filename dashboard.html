@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Campus Event Management System</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <div id="auth-nav"></div>
+                <a href="#" onclick="toggleDarkMode(event)" class="nav-link dark-mode-toggle">🌙</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loader -->
+    <div class="loader-container" id="loaderContainer">
+        <div class="brand-loader" aria-hidden="true">
+            <div class="logo-ring" aria-hidden="true">
+                <div class="loader-core"><div class="ring-anim" aria-hidden="true"></div></div>
+            </div>
+            <div class="brand-text" aria-hidden="true">
+                <span>C</span><span>A</span><span>M</span><span>P</span><span>U</span><span>S</span>
+                <span class="space"></span>
+                <span>E</span><span>V</span><span>E</span><span>N</span><span>T</span><span>S</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent" style="display: none;">
+        <div class="container">
+            <!-- User Welcome Banner -->
+            <div class="dashboard-header">
+                <div>
+                    <h1>Welcome, <span id="userName">User</span>!</h1>
+                    <p>Role: <span id="userRole" class="role-badge"></span></p>
+                </div>
+                <button class="logout-btn" onclick="logoutUser()">Logout</button>
+            </div>
+
+            <!-- Admin/Organizer Dashboard -->
+            <div id="adminOrganizerDashboard" style="display: none;">
+                <!-- Stats Section -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <h3 id="totalUsers">0</h3>
+                            <p>Total Users</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-content">
+                            <h3 id="totalEvents">0</h3>
+                            <p>Total Events</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <h3 id="totalRegistrations">0</h3>
+                            <p>Total Registrations</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">✨</div>
+                        <div class="stat-content">
+                            <h3 id="upcomingEvents">0</h3>
+                            <p>Upcoming Events</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="create-event.html" class="action-button primary">+ Create New Event</a>
+                    <a href="events.html" class="action-button">View All Events</a>
+                </div>
+
+                <!-- Events Management Section -->
+                <div class="management-section">
+                    <h2>Your Events</h2>
+                    <div class="events-table-wrapper" id="eventsTableWrapper">
+                        <p class="loading-text">Loading your events...</p>
+                    </div>
+                </div>
+
+                <!-- Users Section (Admin Only) -->
+                <div id="adminOnlySection" style="display: none;">
+                    <h2>System Users</h2>
+                    <div class="users-list" id="usersList">
+                        <p class="loading-text">Loading users...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Dashboard -->
+            <div id="studentDashboard" style="display: none;">
+                <!-- Stats Section -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-content">
+                            <h3 id="registeredCount">0</h3>
+                            <p>Registered Events</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">🔜</div>
+                        <div class="stat-content">
+                            <h3 id="upcomingCount">0</h3>
+                            <p>Upcoming</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <h3 id="completedCount">0</h3>
+                            <p>Attended</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="events.html" class="action-button primary">Explore Events</a>
+                    <a href="my-events.html" class="action-button">View My Events</a>
+                </div>
+
+                <!-- Registered Events Preview -->
+                <div class="management-section">
+                    <h2>Your Upcoming Events</h2>
+                    <div id="registeredEventsPreview">
+                        <p class="empty-state">No registered events yet. <a href="events.html">Browse events</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <p>&copy; 2026 Campus Event Management System. All rights reserved.</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setupHamburger();
+            checkAuthForRestrictedPage();
+            initializeDashboard();
+        });
+
+        function initializeDashboard() {
+            const loaderContainer = document.getElementById('loaderContainer');
+            const mainContent = document.getElementById('mainContent');
+
+            setTimeout(() => {
+                finishLoading('mainContent', 1200, async () => {
+                    await renderDashboard();
+                });
+            }, 800);
+        }
+
+        async function renderDashboard() {
+            const currentUser = getCurrentUser();
+            
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Render navbar
+            renderNavbar();
+
+            // Set user info
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userRole').textContent = capitalizeRole(currentUser.role);
+            document.getElementById('userRole').className = `role-badge ${currentUser.role}`;
+
+            if (currentUser.role === 'admin' || currentUser.role === 'organizer') {
+                await renderAdminOrganizerDashboard(currentUser);
+            } else {
+                await renderStudentDashboard(currentUser);
+            }
+        }
+
+        async function renderAdminOrganizerDashboard(currentUser) {
+            const adminOrganizerDash = document.getElementById('adminOrganizerDashboard');
+            const studentDash = document.getElementById('studentDashboard');
+            const adminOnlySection = document.getElementById('adminOnlySection');
+
+            studentDash.style.display = 'none';
+            adminOrganizerDash.style.display = 'block';
+
+            // Load stats using backend API
+            const stats = await getUserStats();
+            
+            // Load events to render user's events table
+            const allEvents = await getAllEvents();
+            const userEvents = allEvents.filter(e => e.organizerId === currentUser.id);
+
+            if (stats) {
+                document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
+                document.getElementById('totalEvents').textContent = stats.totalEvents || 0;
+                document.getElementById('totalRegistrations').textContent = stats.totalRegistrations || 0;
+                document.getElementById('upcomingEvents').textContent = stats.upcomingEvents || 0;
+                
+                // If organizer, adjust UI cards to show correct stats
+                if (currentUser.role === 'organizer') {
+                    // Update header names/labels of cards
+                    document.getElementById('totalUsers').parentElement.querySelector('p').textContent = 'Created Events';
+                    document.getElementById('totalUsers').textContent = stats.created || 0;
+
+                    document.getElementById('totalRegistrations').parentElement.querySelector('p').textContent = 'Total Attendees';
+                    document.getElementById('totalRegistrations').textContent = stats.totalAttendees || 0;
+
+                    document.getElementById('upcomingEvents').textContent = stats.upcoming || 0;
+                }
+            }
+
+            // Show admin-only section
+            if (currentUser.role === 'admin') {
+                adminOnlySection.style.display = 'block';
+                const allUsers = await getAllUsers();
+                renderUsersList(allUsers);
+            } else {
+                adminOnlySection.style.display = 'none';
+            }
+
+            // Render user's events
+            renderEventsTable(userEvents, currentUser);
+        }
+
+        async function renderStudentDashboard(currentUser) {
+            const adminOrganizerDash = document.getElementById('adminOrganizerDashboard');
+            const studentDash = document.getElementById('studentDashboard');
+
+            adminOrganizerDash.style.display = 'none';
+            studentDash.style.display = 'block';
+
+            const registeredEvents = await getStudentRegisteredEvents(currentUser.id);
+            const now = new Date();
+            const upcomingEvents = registeredEvents.filter(e => new Date(e.date) > now);
+            const completedEvents = registeredEvents.filter(e => new Date(e.date) <= now);
+
+            const stats = await getUserStats();
+            if (stats) {
+                document.getElementById('registeredCount').textContent = stats.registered || 0;
+                document.getElementById('upcomingCount').textContent = stats.upcoming || 0;
+                document.getElementById('completedCount').textContent = stats.past || 0;
+            } else {
+                document.getElementById('registeredCount').textContent = registeredEvents.length;
+                document.getElementById('upcomingCount').textContent = upcomingEvents.length;
+                document.getElementById('completedCount').textContent = completedEvents.length;
+            }
+
+            renderStudentEventsPreview(upcomingEvents);
+        }
+
+        function renderEventsTable(events, currentUser) {
+            const wrapper = document.getElementById('eventsTableWrapper');
+
+            if (events.length === 0) {
+                wrapper.innerHTML = `
+                    <div class="empty-state">
+                        <p>No events created yet.</p>
+                        <a href="create-event.html" class="link-button">Create Your First Event</a>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableHTML = `
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th>Event Name</th>
+                            <th>Date</th>
+                            <th>Registrations</th>
+                            <th>Capacity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            events.forEach(event => {
+                const seatsLeft = event.maxCapacity - event.attendees.length;
+                tableHTML += `
+                    <tr>
+                        <td><strong>${event.name}</strong></td>
+                        <td>${formatDate(event.date)}</td>
+                        <td>${event.attendees.length}</td>
+                        <td>${event.maxCapacity}</td>
+                        <td>
+                            <a href="event-details.html?id=${event.id}" class="table-link">View</a>
+                            <button onclick="deleteEvent('${event.id}')" class="table-link delete">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            wrapper.innerHTML = tableHTML;
+        }
+
+        function renderUsersList(users) {
+            const usersList = document.getElementById('usersList');
+
+            if (users.length === 0) {
+                usersList.innerHTML = '<p class="empty-state">No users found.</p>';
+                return;
+            }
+
+            let listHTML = `
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Events Registered</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            users.forEach(user => {
+                const registrations = user.registration_count || 0;
+
+                listHTML += `
+                    <tr>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td><span class="role-badge ${user.role}">${capitalizeRole(user.role)}</span></td>
+                        <td>${registrations}</td>
+                    </tr>
+                `;
+            });
+
+            listHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            usersList.innerHTML = listHTML;
+        }
+
+        function renderStudentEventsPreview(events) {
+            const preview = document.getElementById('registeredEventsPreview');
+
+            if (events.length === 0) {
+                preview.innerHTML = `
+                    <div class="empty-state">
+                        <p>No upcoming events registered.</p>
+                        <a href="events.html" class="link-button">Explore Events</a>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="events-preview-grid">';
+            events.slice(0, 3).forEach(event => {
+                html += `
+                    <div class="event-card">
+                        <div class="event-card-header">
+                            <h3>${event.name}</h3>
+                            <span class="category-badge">${event.category}</span>
+                        </div>
+                        <p class="event-date">📅 ${formatDate(event.date)}</p>
+                        <p class="event-venue">📍 ${event.venue}</p>
+                        <div class="event-footer">
+                            <a href="event-details.html?id=${event.id}" class="view-btn">Details</a>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            preview.innerHTML = html;
+        }
+
+        async function deleteEvent(eventId) {
+            if (confirm('Are you sure you want to delete this event?')) {
+                const result = await deleteEventFromSystem(eventId);
+                if (result.success) {
+                    showNotification('Event deleted successfully', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            }
+        }
+
+        function checkAuthForRestrictedPage() {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'login.html';
+            }
+        }
+
+        function renderNavbar() {
+            const authNav = document.getElementById('auth-nav');
+            const currentUser = getCurrentUser();
+
+            if (currentUser) {
+                authNav.innerHTML = `
+                    <a href="my-events.html" class="nav-link">My Events</a>
+                    <button class="nav-link logout-btn" onclick="logoutUser()">Logout</button>
+                `;
+            }
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

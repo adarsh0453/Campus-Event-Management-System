@@ -1,0 +1,287 @@
+/* ============================================
+   Dashboard Styles
+   ============================================ */
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-2xl);
+    padding: var(--spacing-xl);
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-radius: var(--border-radius);
+}
+
+.dashboard-header h1 {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.dashboard-header span {
+    font-weight: 700;
+}
+
+.dashboard-header p {
+    opacity: 0.9;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: var(--spacing-sm);
+}
+
+.role-badge.admin {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.role-badge.organizer {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.role-badge.student {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.logout-btn {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 2px solid white;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.logout-btn:hover {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+/* ============================================
+   Stats Grid
+   ============================================ */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.stat-card {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.stat-content h3 {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-xs);
+    color: var(--primary-color);
+}
+
+.stat-content p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* ============================================
+   Management Section
+   ============================================ */
+
+.management-section {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.management-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-primary);
+}
+
+.events-table-wrapper,
+.users-list {
+    background-color: var(--bg-primary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   Table Styles
+   ============================================ */
+
+.events-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.events-table thead {
+    background-color: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.events-table th {
+    padding: var(--spacing-md) var(--spacing-lg);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.events-table td {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.events-table tbody tr {
+    transition: var(--transition);
+}
+
+.events-table tbody tr:hover {
+    background-color: var(--bg-secondary);
+}
+
+.events-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    margin-right: var(--spacing-lg);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    transition: var(--transition);
+}
+
+.table-link:hover {
+    color: var(--primary-dark);
+}
+
+.table-link.delete {
+    color: var(--error-color);
+}
+
+.table-link.delete:hover {
+    color: #dc2626;
+}
+
+/* ============================================
+   Loading Text
+   ============================================ */
+
+.loading-text {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   Events Preview Grid
+   ============================================ */
+
+.events-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+/* ============================================
+   Responsive Design for Dashboard
+   ============================================ */
+
+@media (max-width: 768px) {
+    .dashboard-header {
+        flex-direction: column;
+        gap: var(--spacing-lg);
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .events-table {
+        font-size: 0.9rem;
+    }
+
+    .events-table th,
+    .events-table td {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .table-link {
+        margin-right: var(--spacing-sm);
+        display: block;
+        margin-bottom: var(--spacing-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-header {
+        padding: var(--spacing-lg);
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.3rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .events-table {
+        font-size: 0.8rem;
+    }
+
+    .events-table th,
+    .events-table td {
+        padding: var(--spacing-sm);
+    }
+
+    .table-link {
+        display: inline-block;
+    }
+
+    .events-preview-grid {
+        grid-template-columns: 1fr;
+    }
+}

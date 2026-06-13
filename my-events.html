@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Events - Campus Event Management System</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="index.html" class="navbar-logo">
+                <span class="logo-icon">📅</span> Campus Events
+            </a>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="events.html" class="nav-link">Browse Events</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <button class="nav-link logout-btn" onclick="logoutUser()">Logout</button>
+                <a href="#" onclick="toggleDarkMode(event)" class="nav-link dark-mode-toggle">🌙</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loader -->
+    <div class="loader-container" id="loaderContainer">
+        <div class="brand-loader" aria-hidden="true">
+            <div class="logo-ring" aria-hidden="true">
+                <div class="loader-core"><div class="ring-anim" aria-hidden="true"></div></div>
+            </div>
+            <div class="brand-text" aria-hidden="true">
+                <span>C</span><span>A</span><span>M</span><span>P</span><span>U</span><span>S</span>
+                <span class="space"></span>
+                <span>E</span><span>V</span><span>E</span><span>N</span><span>T</span><span>S</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent" style="display: none;">
+        <div class="container">
+            <div class="events-header">
+                <h1>My Events</h1>
+                <p>Events you're registered for</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs-container">
+                <button class="tab-button active" onclick="switchTab('upcoming')">
+                    🔜 Upcoming
+                </button>
+                <button class="tab-button" onclick="switchTab('past')">
+                    ✅ Past
+                </button>
+            </div>
+
+            <!-- Upcoming Events -->
+            <div id="upcomingTab" class="tab-content">
+                <div class="events-grid" id="upcomingEventsGrid">
+                    <div class="skeleton-loader"></div>
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div id="upcomingEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h2>No Upcoming Events</h2>
+                    <p>You haven't registered for any upcoming events</p>
+                    <a href="events.html" class="link-button">Explore Events</a>
+                </div>
+            </div>
+
+            <!-- Past Events -->
+            <div id="pastTab" class="tab-content" style="display: none;">
+                <div class="events-grid" id="pastEventsGrid">
+                    <div class="skeleton-loader"></div>
+                    <div class="skeleton-loader"></div>
+                </div>
+                <div id="pastEmpty" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📭</div>
+                    <h2>No Past Events</h2>
+                    <p>You haven't attended any events yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <p>&copy; 2026 Campus Event Management System. All rights reserved.</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/events.js"></script>
+    <script>
+        let currentUser = null;
+        let allRegisteredEvents = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupHamburger();
+            checkAuthForStudentsOnly();
+            initializeMyEventsPage();
+        });
+
+        function initializeMyEventsPage() {
+            const loaderContainer = document.getElementById('loaderContainer');
+            const mainContent = document.getElementById('mainContent');
+
+            setTimeout(() => {
+                finishLoading('mainContent', 1000, async () => {
+                    await loadMyEvents();
+                });
+            }, 800);
+        }
+
+        async function loadMyEvents() {
+            currentUser = getCurrentUser();
+            allRegisteredEvents = await getStudentRegisteredEvents(currentUser.id);
+            renderMyEvents();
+        }
+
+        function renderMyEvents() {
+            const now = new Date();
+            const upcomingEvents = allRegisteredEvents.filter(e => new Date(e.date) > now);
+            const pastEvents = allRegisteredEvents.filter(e => new Date(e.date) <= now);
+
+            renderEventsList('upcoming', upcomingEvents);
+            renderEventsList('past', pastEvents);
+
+            // Show empty states if needed
+            if (upcomingEvents.length === 0) {
+                document.getElementById('upcomingEventsGrid').style.display = 'none';
+                document.getElementById('upcomingEmpty').style.display = 'flex';
+            }
+
+            if (pastEvents.length === 0) {
+                document.getElementById('pastEventsGrid').style.display = 'none';
+                document.getElementById('pastEmpty').style.display = 'flex';
+            }
+        }
+
+        function renderEventsList(type, events) {
+            const gridId = type === 'upcoming' ? 'upcomingEventsGrid' : 'pastEventsGrid';
+            const grid = document.getElementById(gridId);
+
+            if (events.length === 0) {
+                grid.innerHTML = '';
+                return;
+            }
+
+            grid.innerHTML = '';
+            
+            events.forEach(event => {
+                const card = createMyEventCard(event);
+                grid.appendChild(card);
+            });
+        }
+
+        function createMyEventCard(event) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            const now = new Date();
+            const isPast = new Date(event.date) <= now;
+            const seatsLeft = event.maxCapacity - event.attendees.length;
+
+            card.innerHTML = `
+                <div class="event-card-header">
+                    <h3>${event.name}</h3>
+                    <span class="category-badge">${event.category}</span>
+                </div>
+                <p class="event-date">📅 ${formatDate(event.date)}</p>
+                <p class="event-venue">📍 ${event.venue}</p>
+                <p class="event-description">${event.description.substring(0, 80)}...</p>
+                <div class="event-footer">
+                    <button class="unregister-btn" onclick="unregisterAndRefresh('${event.id}')">
+                        ${isPast ? 'Event Completed' : 'Unregister'}
+                    </button>
+                    <a href="event-details.html?id=${event.id}" class="view-btn">Details</a>
+                </div>
+            `;
+            return card;
+        }
+
+        function switchTab(tab) {
+            // Hide all tabs
+            document.getElementById('upcomingTab').style.display = 'none';
+            document.getElementById('pastTab').style.display = 'none';
+
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            if (tab === 'upcoming') {
+                document.getElementById('upcomingTab').style.display = 'block';
+                document.querySelectorAll('.tab-button')[0].classList.add('active');
+            } else {
+                document.getElementById('pastTab').style.display = 'block';
+                document.querySelectorAll('.tab-button')[1].classList.add('active');
+            }
+        }
+
+        async function unregisterAndRefresh(eventId) {
+            if (confirm('Are you sure you want to unregister from this event?')) {
+                const result = await unregisterUserFromEvent(currentUser.id, eventId);
+                if (result.success) {
+                    showNotification('Successfully unregistered from event', 'success');
+                    setTimeout(async () => {
+                        await loadMyEvents();
+                    }, 500);
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            }
+        }
+
+        function checkAuthForStudentsOnly() {
+            const currentUser = getCurrentUser();
+            
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Allow all roles to see their registered events
+        }
+
+        function setupHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const navbarMenu = document.getElementById('navbarMenu');
+
+            hamburger.addEventListener('click', () => {
+                navbarMenu.classList.toggle('active');
+                hamburger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.navbar')) {
+                    navbarMenu.classList.remove('active');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
