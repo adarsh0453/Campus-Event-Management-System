@@ -1,7 +1,6 @@
 -- MySQL Database Schema for Campus Event Management System
 
-CREATE DATABASE IF NOT EXISTS `campus_events`;
-USE `campus_events`;
+
 
 -- Create tables if they do not exist (safe for re-runs)
 
