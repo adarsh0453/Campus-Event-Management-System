@@ -117,7 +117,7 @@ async function seedDefaultData() {
         // Seed users
         for (const user of defaultUsers) {
             await pool.query(
-                'INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+                'INSERT INTO users (id, user_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
                 [user.id, user.name, user.email, user.password_hash, user.role]
             );
         }
@@ -141,7 +141,7 @@ async function seedDefaultData() {
         // Seed events
         for (const ev of defaultEvents) {
             await pool.query(
-                'INSERT INTO events (id, name, description, category, date, time, venue, max_capacity, organizer, organizer_id, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO events (id, event_name, description, category, event_date, event_time, venue, max_capacity, organizer, organizer_id, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [ev.id, ev.name, ev.description, ev.category, ev.date, ev.time, ev.venue, ev.maxCapacity, ev.organizer, ev.organizerId, ev.type]
             );
         }
@@ -192,7 +192,7 @@ app.post('/api/auth/register', async (req, res) => {
         const userId = 'user-' + Date.now();
 
         await pool.query(
-            'INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO users (id, user_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
             [userId, name, email, passwordHash, role]
         );
 
@@ -226,7 +226,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
 
-        const userSession = { id: user.id, name: user.name, email: user.email, role: user.role };
+        const userSession = { id: user.id, name: user.user_name, email: user.email, role: user.role };
         req.session.user = userSession;
 
         res.json({ success: true, data: userSession });
@@ -269,25 +269,25 @@ app.get('/api/events', async (req, res) => {
             FROM events e
             LEFT JOIN registrations r ON e.id = r.event_id
             GROUP BY e.id
-            ORDER BY e.date ASC
+            ORDER BY e.event_date ASC
         `;
         const [rows] = await pool.query(query);
         
         // Format events array to structure attendees as array of strings
         const events = rows.map(event => {
-            const dateStr = new Date(event.date).toISOString().split('T')[0];
+            const dateStr = new Date(event.event_date).toISOString().split('T')[0];
             return {
                 id: event.id,
-                name: event.name,
+                name: event.event_name,
                 description: event.description,
                 category: event.category,
                 date: dateStr,
-                time: event.time,
+                time: event.event_time,
                 venue: event.venue,
                 maxCapacity: event.max_capacity,
                 organizer: event.organizer,
                 organizerId: event.organizer_id,
-                type: event.type,
+                type: event.event_type,
                 createdAt: event.created_at,
                 attendees: event.attendees ? event.attendees.split(',') : []
             };
@@ -318,19 +318,19 @@ app.get('/api/events/:id', async (req, res) => {
         }
 
         const event = rows[0];
-        const dateStr = new Date(event.date).toISOString().split('T')[0];
+        const dateStr = new Date(event.event_date).toISOString().split('T')[0];
         const formattedEvent = {
             id: event.id,
-            name: event.name,
+            name: event.event_name,
             description: event.description,
             category: event.category,
             date: dateStr,
-            time: event.time,
+            time: event.event_time,
             venue: event.venue,
             maxCapacity: event.max_capacity,
             organizer: event.organizer,
             organizerId: event.organizer_id,
-            type: event.type,
+            type: event.event_type,
             createdAt: event.created_at,
             attendees: event.attendees ? event.attendees.split(',') : []
         };
@@ -365,7 +365,7 @@ app.post('/api/events', async (req, res) => {
         const organizerId = req.session.user.id;
 
         await pool.query(
-            'INSERT INTO events (id, name, description, category, date, time, venue, max_capacity, organizer, organizer_id, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO events (id, event_name, description, category, event_date, event_time, venue, max_capacity, organizer, organizer_id, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [eventId, name, description, category, date, time || 'TBA', venue, maxCapacity, organizer, organizerId, type || 'In-person']
         );
 
@@ -476,16 +476,16 @@ app.post('/api/events/:id/register', async (req, res) => {
         const updatedEvent = updatedRows[0];
         const formattedEvent = {
             id: updatedEvent.id,
-            name: updatedEvent.name,
+            name: updatedEvent.event_name,
             description: updatedEvent.description,
             category: updatedEvent.category,
-            date: new Date(updatedEvent.date).toISOString().split('T')[0],
-            time: updatedEvent.time,
+            date: new Date(updatedEvent.event_date).toISOString().split('T')[0],
+            time: updatedEvent.event_time,
             venue: updatedEvent.venue,
             maxCapacity: updatedEvent.max_capacity,
             organizer: updatedEvent.organizer,
             organizerId: updatedEvent.organizer_id,
-            type: updatedEvent.type,
+            type: updatedEvent.event_type,
             createdAt: updatedEvent.created_at,
             attendees: updatedEvent.attendees ? updatedEvent.attendees.split(',') : []
         };
@@ -532,16 +532,16 @@ app.post('/api/events/:id/unregister', async (req, res) => {
         const updatedEvent = updatedRows[0];
         const formattedEvent = {
             id: updatedEvent.id,
-            name: updatedEvent.name,
+            name: updatedEvent.event_name,
             description: updatedEvent.description,
             category: updatedEvent.category,
-            date: new Date(updatedEvent.date).toISOString().split('T')[0],
-            time: updatedEvent.time,
+            date: new Date(updatedEvent.event_date).toISOString().split('T')[0],
+            time: updatedEvent.event_time,
             venue: updatedEvent.venue,
             maxCapacity: updatedEvent.max_capacity,
             organizer: updatedEvent.organizer,
             organizerId: updatedEvent.organizer_id,
-            type: updatedEvent.type,
+            type: updatedEvent.event_type,
             createdAt: updatedEvent.created_at,
             attendees: updatedEvent.attendees ? updatedEvent.attendees.split(',') : []
         };
@@ -566,11 +566,11 @@ app.get('/api/users', async (req, res) => {
     try {
         // Fetch all users with their total registrations count
         const query = `
-            SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(r.event_id) as registration_count
+            SELECT u.id, u.user_name as name, u.email, u.role, u.created_at, COUNT(r.event_id) as registration_count
             FROM users u
             LEFT JOIN registrations r ON u.id = r.user_id
             GROUP BY u.id
-            ORDER BY u.name ASC
+            ORDER BY u.user_name ASC
         `;
         const [rows] = await pool.query(query);
         res.json({ success: true, data: rows });
@@ -599,7 +599,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
             const [userCount] = await pool.query('SELECT COUNT(*) as count FROM users');
             const [eventCount] = await pool.query('SELECT COUNT(*) as count FROM events');
             const [regCount] = await pool.query('SELECT COUNT(*) as count FROM registrations');
-            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE date > ?', [now]);
+            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE event_date > ?', [now]);
 
             return res.json({
                 success: true,
@@ -615,7 +615,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
         if (role === 'organizer') {
             // Stats for Organizer: created events count, upcoming events, total attendees
             const [createdCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE organizer_id = ?', [id]);
-            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE organizer_id = ? AND date > ?', [id, now]);
+            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE organizer_id = ? AND event_date > ?', [id, now]);
             
             // Total attendees across all events created by this organizer
             const attendeeQuery = `
@@ -650,7 +650,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 SELECT COUNT(r.event_id) as count
                 FROM registrations r
                 JOIN events e ON r.event_id = e.id
-                WHERE r.user_id = ? AND e.date > ?
+                WHERE r.user_id = ? AND e.event_date > ?
             `;
             const [upcomingCount] = await pool.query(upcomingQuery, [id, now]);
 
@@ -658,7 +658,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 SELECT COUNT(r.event_id) as count
                 FROM registrations r
                 JOIN events e ON r.event_id = e.id
-                WHERE r.user_id = ? AND e.date <= ?
+                WHERE r.user_id = ? AND e.event_date <= ?
             `;
             const [pastCount] = await pool.query(pastQuery, [id, now]);
 
