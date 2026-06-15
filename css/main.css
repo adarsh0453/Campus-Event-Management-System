@@ -335,13 +335,6 @@ h3 {
 
 /* per-letter subtle wave during the single loop (plays once then settles) */
 
-.brand-text span {
-    display: inline-block;
-    opacity: 1;
-    transform: none;
-    animation: none;
-}
-
 .brand-text span.space {
     animation: none !important;
 }
@@ -1228,18 +1221,6 @@ h3 {
     transition: var(--transition);
     display: inline-block;
     text-align: center;
-}
-
-.action-button.primary {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-.action-button.primary:hover {
-    background-color: var(--primary-dark);
-}
-
-.action-button {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
@@ -1247,6 +1228,17 @@ h3 {
 
 .action-button:hover {
     background-color: var(--border-color);
+}
+
+.action-button.primary {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.action-button.primary:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
 }
 
 .cancel-button {
