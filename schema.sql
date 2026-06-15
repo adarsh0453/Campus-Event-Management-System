@@ -3,13 +3,10 @@
 CREATE DATABASE IF NOT EXISTS `campus_events`;
 USE `campus_events`;
 
--- Drop tables if they exist (clean setup)
-DROP TABLE IF EXISTS `registrations`;
-DROP TABLE IF EXISTS `events`;
-DROP TABLE IF EXISTS `users`;
+-- Create tables if they do not exist (safe for re-runs)
 
 -- Users Table
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` VARCHAR(255) PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) UNIQUE NOT NULL,
@@ -19,7 +16,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Events Table
-CREATE TABLE `events` (
+CREATE TABLE IF NOT EXISTS `events` (
   `id` VARCHAR(255) PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL,
   `description` TEXT NOT NULL,
@@ -36,7 +33,7 @@ CREATE TABLE `events` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Registrations / Attendees Table
-CREATE TABLE `registrations` (
+CREATE TABLE IF NOT EXISTS `registrations` (
   `event_id` VARCHAR(255) NOT NULL,
   `user_id` VARCHAR(255) NOT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

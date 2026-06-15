@@ -26,13 +26,6 @@ app.use(session({
     }
 }));
 
-// Handle JSON parse errors gracefully (return JSON, not HTML)
-app.use((err, req, res, next) => {
-    if (err.type === 'entity.parse.failed') {
-        return res.status(400).json({ success: false, message: 'Invalid JSON in request body' });
-    }
-    next(err);
-});
 
 // Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
@@ -694,6 +687,20 @@ app.get('*', (req, res, next) => {
     }
     // Otherwise serve index.html (or continue to standard static fallback)
     next();
+});
+
+// Handle JSON parse errors gracefully (return JSON, not HTML)
+app.use((err, req, res, next) => {
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ success: false, message: 'Invalid JSON in request body' });
+    }
+    next(err);
+});
+
+// Generic error handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
 // Run server after database init

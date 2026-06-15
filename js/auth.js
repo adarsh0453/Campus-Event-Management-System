@@ -14,7 +14,11 @@ async function registerUser(name, email, password, role) {
         });
         const text = await res.text();
         try {
-            return JSON.parse(text);
+            const json = JSON.parse(text);
+            if (json.success && json.data) {
+                setCurrentUser(json.data);
+            }
+            return json;
         } catch (parseErr) {
             console.error('Non-JSON response from server:', text.substring(0, 200));
             return { success: false, message: 'Server error. Please try again.' };
