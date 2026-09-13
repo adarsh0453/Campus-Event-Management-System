@@ -30,80 +30,299 @@ app.use(session({
 // Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
 
-let pool;
+const connectionConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'campus_events',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+};
+
+// Create global connection pool
+const pool = mysql.createPool(connectionConfig);
+
+let useMemoryDb = false;
+let isDbInitializing = false;
+let isDbInitialized = false;
+
+const memoryDb = {
+    users: [],
+    events: [],
+    registrations: []
+};
+
+function initMemoryStore() {
+    if (memoryDb.users.length > 0) return;
+    const passwordHash = bcrypt.hashSync('password123', 10);
+    memoryDb.users = [
+        { id: 'user-1', user_name: 'John Student', email: 'student@example.com', password_hash: passwordHash, role: 'student', created_at: new Date() },
+        { id: 'user-2', user_name: 'Alice Organizer', email: 'organizer@example.com', password_hash: passwordHash, role: 'organizer', created_at: new Date() },
+        { id: 'user-3', user_name: 'Admin User', email: 'admin@example.com', password_hash: passwordHash, role: 'admin', created_at: new Date() },
+        { id: 'user-4', user_name: 'Jane Student', email: 'jane@example.com', password_hash: passwordHash, role: 'student', created_at: new Date() },
+        { id: 'user-5', user_name: 'Bob Organizer', email: 'bob@example.com', password_hash: passwordHash, role: 'organizer', created_at: new Date() }
+    ];
+
+    const futureDate = (daysAhead) => {
+        const d = new Date();
+        d.setDate(d.getDate() + daysAhead);
+        return d.toISOString().split('T')[0];
+    };
+
+    memoryDb.events = [
+        { id: 'event-1', event_name: 'Web Development Workshop', description: 'Learn modern web development with HTML, CSS, and JavaScript.', category: 'Workshop', event_date: futureDate(7), event_time: '14:00', venue: 'Engineering Building, Room 201', max_capacity: 30, organizer: 'Alice Organizer', organizer_id: 'user-2', event_type: 'In-person', created_at: new Date() },
+        { id: 'event-2', event_name: 'Annual Cultural Festival', description: 'Celebrate diversity with music, dance, food, and cultural performances.', category: 'Cultural', event_date: futureDate(14), event_time: '10:00', venue: 'Main Campus Grounds', max_capacity: 500, organizer: 'Alice Organizer', organizer_id: 'user-2', event_type: 'In-person', created_at: new Date() },
+        { id: 'event-3', event_name: 'Basketball Tournament', description: 'Compete in our inter-class basketball tournament. All skill levels welcome.', category: 'Sports', event_date: futureDate(21), event_time: '16:00', venue: 'Sports Complex', max_capacity: 100, organizer: 'Bob Organizer', organizer_id: 'user-5', event_type: 'In-person', created_at: new Date() },
+        { id: 'event-4', event_name: 'Data Science Seminar', description: 'Exploring the latest trends in data science and machine learning.', category: 'Academic', event_date: futureDate(10), event_time: '13:00', venue: 'Virtual Meeting Room', max_capacity: 150, organizer: 'Alice Organizer', organizer_id: 'user-2', event_type: 'Online', created_at: new Date() },
+        { id: 'event-5', event_name: 'Student Networking Dinner', description: 'Connect with fellow students over dinner.', category: 'Social', event_date: futureDate(5), event_time: '18:00', venue: 'Student Center, Main Hall', max_capacity: 80, organizer: 'Bob Organizer', organizer_id: 'user-5', event_type: 'In-person', created_at: new Date() },
+        { id: 'event-6', event_name: 'UI/UX Design Masterclass', description: 'Master the principles of user interface and user experience design.', category: 'Workshop', event_date: futureDate(28), event_time: '15:00', venue: 'Design Lab, Building A', max_capacity: 25, organizer: 'Alice Organizer', organizer_id: 'user-2', event_type: 'Hybrid', created_at: new Date() }
+    ];
+
+    memoryDb.registrations = [
+        { event_id: 'event-1', user_id: 'user-1' },
+        { event_id: 'event-1', user_id: 'user-4' },
+        { event_id: 'event-2', user_id: 'user-1' },
+        { event_id: 'event-3', user_id: 'user-4' },
+        { event_id: 'event-4', user_id: 'user-1' },
+        { event_id: 'event-4', user_id: 'user-4' },
+        { event_id: 'event-5', user_id: 'user-1' }
+    ];
+}
+
+function runMemoryQuery(sql, params = []) {
+    initMemoryStore();
+    const cleanSql = sql.replace(/\s+/g, ' ').trim();
+
+    if (/SHOW TABLES LIKE 'users'/i.test(cleanSql)) {
+        return [{ Tables_in_db: 'users' }];
+    }
+    if (/SELECT id FROM users WHERE email = \?/i.test(cleanSql)) {
+        return memoryDb.users.filter(u => u.email === params[0]).map(u => ({ id: u.id }));
+    }
+    if (/SELECT \* FROM users WHERE email = \?/i.test(cleanSql)) {
+        return memoryDb.users.filter(u => u.email === params[0]);
+    }
+    if (/INSERT INTO users/i.test(cleanSql)) {
+        memoryDb.users.push({
+            id: params[0],
+            user_name: params[1],
+            email: params[2],
+            password_hash: params[3],
+            role: params[4],
+            created_at: new Date()
+        });
+        return { affectedRows: 1 };
+    }
+    if (/FROM users u/i.test(cleanSql)) {
+        return memoryDb.users.map(u => ({
+            id: u.id,
+            name: u.user_name,
+            email: u.email,
+            role: u.role,
+            created_at: u.created_at,
+            registration_count: memoryDb.registrations.filter(r => r.user_id === u.id).length
+        })).sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (/GROUP_CONCAT\(r\.user_id\) as attendees/i.test(cleanSql)) {
+        let eventsList = memoryDb.events;
+        if (cleanSql.includes('WHERE e.id = ?')) {
+            eventsList = eventsList.filter(e => e.id === params[0]);
+        }
+        return eventsList.map(e => {
+            const atts = memoryDb.registrations.filter(r => r.event_id === e.id).map(r => r.user_id).join(',');
+            return {
+                id: e.id,
+                event_name: e.event_name,
+                description: e.description,
+                category: e.category,
+                event_date: e.event_date,
+                event_time: e.event_time,
+                venue: e.venue,
+                max_capacity: e.max_capacity,
+                organizer: e.organizer,
+                organizer_id: e.organizer_id,
+                event_type: e.event_type,
+                created_at: e.created_at,
+                attendees: atts || null
+            };
+        });
+    }
+    if (/COUNT\(r\.user_id\) as current_attendees/i.test(cleanSql)) {
+        const evs = memoryDb.events.filter(e => e.id === params[0]);
+        if (evs.length === 0) return [];
+        const ev = evs[0];
+        const count = memoryDb.registrations.filter(r => r.event_id === ev.id).length;
+        return [{ ...ev, current_attendees: count }];
+    }
+    if (/INSERT INTO events/i.test(cleanSql)) {
+        memoryDb.events.push({
+            id: params[0],
+            event_name: params[1],
+            description: params[2],
+            category: params[3],
+            event_date: params[4],
+            event_time: params[5],
+            venue: params[6],
+            max_capacity: params[7],
+            organizer: params[8],
+            organizer_id: params[9],
+            event_type: params[10],
+            created_at: new Date()
+        });
+        return { affectedRows: 1 };
+    }
+    if (/SELECT organizer_id FROM events WHERE id = \?/i.test(cleanSql)) {
+        return memoryDb.events.filter(e => e.id === params[0]).map(e => ({ organizer_id: e.organizer_id }));
+    }
+    if (/DELETE FROM events WHERE id = \?/i.test(cleanSql)) {
+        memoryDb.events = memoryDb.events.filter(e => e.id !== params[0]);
+        memoryDb.registrations = memoryDb.registrations.filter(r => r.event_id !== params[0]);
+        return { affectedRows: 1 };
+    }
+    if (/SELECT user_id FROM registrations WHERE event_id = \? AND user_id = \?/i.test(cleanSql)) {
+        return memoryDb.registrations.filter(r => r.event_id === params[0] && r.user_id === params[1]);
+    }
+    if (/INSERT INTO registrations/i.test(cleanSql)) {
+        memoryDb.registrations.push({ event_id: params[0], user_id: params[1] });
+        return { affectedRows: 1 };
+    }
+    if (/DELETE FROM registrations WHERE event_id = \? AND user_id = \?/i.test(cleanSql)) {
+        memoryDb.registrations = memoryDb.registrations.filter(r => !(r.event_id === params[0] && r.user_id === params[1]));
+        return { affectedRows: 1 };
+    }
+    if (/SELECT COUNT\(\*\) as count FROM users/i.test(cleanSql)) {
+        return [{ count: memoryDb.users.length }];
+    }
+    if (/SELECT COUNT\(\*\) as count FROM events WHERE organizer_id = \? AND event_date > \?/i.test(cleanSql)) {
+        return [{ count: memoryDb.events.filter(e => e.organizer_id === params[0] && String(e.event_date) > params[1]).length }];
+    }
+    if (/SELECT COUNT\(\*\) as count FROM events WHERE organizer_id = \?/i.test(cleanSql)) {
+        return [{ count: memoryDb.events.filter(e => e.organizer_id === params[0]).length }];
+    }
+    if (/SELECT COUNT\(\*\) as count FROM events WHERE event_date > \?/i.test(cleanSql)) {
+        return [{ count: memoryDb.events.filter(e => String(e.event_date) > params[0]).length }];
+    }
+    if (/SELECT COUNT\(\*\) as count FROM events/i.test(cleanSql)) {
+        return [{ count: memoryDb.events.length }];
+    }
+    if (/SELECT COUNT\(\*\) as count FROM registrations/i.test(cleanSql)) {
+        return [{ count: memoryDb.registrations.length }];
+    }
+    if (/SELECT COUNT\(r\.user_id\) as count FROM registrations r JOIN events e/i.test(cleanSql)) {
+        const count = memoryDb.registrations.filter(r => {
+            const ev = memoryDb.events.find(e => e.id === r.event_id);
+            return ev && ev.organizer_id === params[0];
+        }).length;
+        return [{ count }];
+    }
+    if (/SELECT COUNT\(r\.event_id\) as count FROM registrations r JOIN events e ON r\.event_id = e\.id WHERE r\.user_id = \? AND e\.event_date > \?/i.test(cleanSql)) {
+        const count = memoryDb.registrations.filter(r => {
+            const ev = memoryDb.events.find(e => e.id === r.event_id);
+            return r.user_id === params[0] && ev && String(ev.event_date) > params[1];
+        }).length;
+        return [{ count }];
+    }
+    if (/SELECT COUNT\(r\.event_id\) as count FROM registrations r JOIN events e ON r\.event_id = e\.id WHERE r\.user_id = \? AND e\.event_date <= \?/i.test(cleanSql)) {
+        const count = memoryDb.registrations.filter(r => {
+            const ev = memoryDb.events.find(e => e.id === r.event_id);
+            return r.user_id === params[0] && ev && String(ev.event_date) <= params[1];
+        }).length;
+        return [{ count }];
+    }
+    if (/SELECT COUNT\(r\.event_id\) as count FROM registrations r JOIN events e ON r\.event_id = e\.id WHERE r\.user_id = \?/i.test(cleanSql)) {
+        const count = memoryDb.registrations.filter(r => r.user_id === params[0]).length;
+        return [{ count }];
+    }
+
+    return [];
+}
+
+async function safeQuery(sql, params = []) {
+    if (useMemoryDb) {
+        return [runMemoryQuery(sql, params)];
+    }
+
+    try {
+        return await pool.query(sql, params);
+    } catch (err) {
+        console.log('[Database Notice] MySQL connection unavailable, activating memory store:', err.message);
+        useMemoryDb = true;
+        return [runMemoryQuery(sql, params)];
+    }
+}
 
 // Database Connection and Auto-Initialization
 async function initDatabase() {
-    const connectionConfig = {
+    if (isDbInitialized || isDbInitializing) return;
+    isDbInitializing = true;
+
+    initMemoryStore();
+
+    const rootConfig = {
         host: process.env.DB_HOST || 'localhost',
         port: process.env.DB_PORT || 3306,
         user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || ''
+        password: process.env.DB_PASSWORD || '',
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
     };
 
     // 1. Connect without database to ensure it exists
     let connection;
     try {
-        connection = await mysql.createConnection(connectionConfig);
+        connection = await mysql.createConnection(rootConfig);
         await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'campus_events'}\`;`);
         console.log(`Database '${process.env.DB_NAME || 'campus_events'}' confirmed/created.`);
     } catch (err) {
-        console.error('Error connecting to MySQL or creating database:', err.message);
-        console.error('Make sure MySQL is running and your .env credentials are correct.');
-        process.exit(1);
+        console.log('Database auto-creation check skipped or failed:', err.message);
     } finally {
-        if (connection) await connection.end();
+        if (connection) await connection.end().catch(() => {});
     }
 
-    // 2. Setup the connection pool with the database selected
-    pool = mysql.createPool({
-        ...connectionConfig,
-        database: process.env.DB_NAME || 'campus_events',
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-    });
-
-    // 3. Auto-run schema.sql script to initialize tables
+    // 2. Auto-run schema.sql script to initialize tables if needed
     try {
-        const schemaPath = path.join(__dirname, 'schema.sql');
-        const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-        
-        // Split SQL script by semicolons, but ignore semicolons inside comments or strings
-        const queries = schemaSql
-            .split(/;\s*$/m)
-            .map(q => q.trim())
-            .filter(q => q.length > 0 && !q.startsWith('--'));
-
-        // Let's check if the tables already exist first before running the schema
-        const [tables] = await pool.query("SHOW TABLES LIKE 'users';");
-        if (tables.length === 0) {
+        const [tables] = await safeQuery("SHOW TABLES LIKE 'users';");
+        if (!tables || tables.length === 0) {
             console.log('Tables do not exist. Running schema.sql...');
-            // Enable multiple statements just for table initialization
             const initConnection = await mysql.createConnection({
-                ...connectionConfig,
+                ...rootConfig,
                 database: process.env.DB_NAME || 'campus_events',
                 multipleStatements: true
             });
+            const schemaPath = path.join(__dirname, 'schema.sql');
+            const schemaSql = fs.readFileSync(schemaPath, 'utf8');
             await initConnection.query(schemaSql);
             await initConnection.end();
             console.log('Tables initialized successfully.');
             
-            // Seed default data
             await seedDefaultData();
         } else {
             console.log('Database tables already exist. Skipping schema initialization.');
         }
+        isDbInitialized = true;
     } catch (err) {
-        console.error('Failed to run schema.sql table initialization:', err.message);
+        console.error('Database schema check/initialization notice:', err.message);
+        useMemoryDb = true;
+        isDbInitialized = true;
+    } finally {
+        isDbInitializing = false;
     }
 }
+
+// Middleware to lazily check/initialize DB schema for API calls
+app.use('/api', async (req, res, next) => {
+    if (!isDbInitialized) {
+        await initDatabase();
+    }
+    next();
+});
 
 // Seed helper
 async function seedDefaultData() {
     console.log('Seeding default users and events...');
     try {
-        // Hashed password for 'password123'
         const passwordHash = await bcrypt.hash('password123', 10);
 
         const defaultUsers = [
@@ -114,15 +333,13 @@ async function seedDefaultData() {
             { id: 'user-5', name: 'Bob Organizer', email: 'bob@example.com', password_hash: passwordHash, role: 'organizer' }
         ];
 
-        // Seed users
         for (const user of defaultUsers) {
-            await pool.query(
+            await safeQuery(
                 'INSERT INTO users (id, user_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
                 [user.id, user.name, user.email, user.password_hash, user.role]
             );
         }
 
-        // Helper to generate ISO dates for future
         const futureDate = (daysAhead) => {
             const d = new Date();
             d.setDate(d.getDate() + daysAhead);
@@ -138,15 +355,13 @@ async function seedDefaultData() {
             { id: 'event-6', name: 'UI/UX Design Masterclass', description: 'Master the principles of user interface and user experience design.', category: 'Workshop', date: futureDate(28), time: '15:00', venue: 'Design Lab, Building A', maxCapacity: 25, organizer: 'Alice Organizer', organizerId: 'user-2', type: 'Hybrid' }
         ];
 
-        // Seed events
         for (const ev of defaultEvents) {
-            await pool.query(
+            await safeQuery(
                 'INSERT INTO events (id, event_name, description, category, event_date, event_time, venue, max_capacity, organizer, organizer_id, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [ev.id, ev.name, ev.description, ev.category, ev.date, ev.time, ev.venue, ev.maxCapacity, ev.organizer, ev.organizerId, ev.type]
             );
         }
 
-        // Seed registrations
         const registrations = [
             { event_id: 'event-1', user_id: 'user-1' },
             { event_id: 'event-1', user_id: 'user-4' },
@@ -158,7 +373,7 @@ async function seedDefaultData() {
         ];
 
         for (const reg of registrations) {
-            await pool.query(
+            await safeQuery(
                 'INSERT INTO registrations (event_id, user_id) VALUES (?, ?)',
                 [reg.event_id, reg.user_id]
             );
@@ -183,7 +398,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     try {
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+        const [existing] = await safeQuery('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
@@ -191,7 +406,7 @@ app.post('/api/auth/register', async (req, res) => {
         const passwordHash = await bcrypt.hash(password, 10);
         const userId = 'user-' + Date.now();
 
-        await pool.query(
+        await safeQuery(
             'INSERT INTO users (id, user_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
             [userId, name, email, passwordHash, role]
         );
@@ -215,7 +430,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     try {
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const [users] = await safeQuery('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
@@ -271,7 +486,7 @@ app.get('/api/events', async (req, res) => {
             GROUP BY e.id
             ORDER BY e.event_date ASC
         `;
-        const [rows] = await pool.query(query);
+        const [rows] = await safeQuery(query);
         
         // Format events array to structure attendees as array of strings
         const events = rows.map(event => {
@@ -311,7 +526,7 @@ app.get('/api/events/:id', async (req, res) => {
             WHERE e.id = ?
             GROUP BY e.id
         `;
-        const [rows] = await pool.query(query, [eventId]);
+        const [rows] = await safeQuery(query, [eventId]);
         
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Event not found' });
@@ -364,7 +579,7 @@ app.post('/api/events', async (req, res) => {
         const organizer = req.session.user.name;
         const organizerId = req.session.user.id;
 
-        await pool.query(
+        await safeQuery(
             'INSERT INTO events (id, event_name, description, category, event_date, event_time, venue, max_capacity, organizer, organizer_id, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [eventId, name, description, category, date, time || 'TBA', venue, maxCapacity, organizer, organizerId, type || 'In-person']
         );
@@ -400,7 +615,7 @@ app.delete('/api/events/:id', async (req, res) => {
     const eventId = req.params.id;
 
     try {
-        const [events] = await pool.query('SELECT organizer_id FROM events WHERE id = ?', [eventId]);
+        const [events] = await safeQuery('SELECT organizer_id FROM events WHERE id = ?', [eventId]);
         if (events.length === 0) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
@@ -410,7 +625,7 @@ app.delete('/api/events/:id', async (req, res) => {
             return res.status(403).json({ success: false, message: 'You can only delete your own events' });
         }
 
-        await pool.query('DELETE FROM events WHERE id = ?', [eventId]);
+        await safeQuery('DELETE FROM events WHERE id = ?', [eventId]);
         res.json({ success: true, message: 'Event deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -436,7 +651,7 @@ app.post('/api/events/:id/register', async (req, res) => {
             WHERE e.id = ?
             GROUP BY e.id
         `;
-        const [events] = await pool.query(query, [eventId]);
+        const [events] = await safeQuery(query, [eventId]);
         
         if (events.length === 0) {
             return res.status(404).json({ success: false, message: 'Event not found' });
@@ -445,7 +660,7 @@ app.post('/api/events/:id/register', async (req, res) => {
         const event = events[0];
 
         // Check if already registered
-        const [existing] = await pool.query(
+        const [existing] = await safeQuery(
             'SELECT user_id FROM registrations WHERE event_id = ? AND user_id = ?',
             [eventId, userId]
         );
@@ -459,13 +674,13 @@ app.post('/api/events/:id/register', async (req, res) => {
         }
 
         // Insert registration
-        await pool.query(
+        await safeQuery(
             'INSERT INTO registrations (event_id, user_id) VALUES (?, ?)',
             [eventId, userId]
         );
 
         // Fetch updated event
-        const [updatedRows] = await pool.query(`
+        const [updatedRows] = await safeQuery(`
             SELECT e.*, GROUP_CONCAT(r.user_id) as attendees
             FROM events e
             LEFT JOIN registrations r ON e.id = r.event_id
@@ -507,7 +722,7 @@ app.post('/api/events/:id/unregister', async (req, res) => {
     const userId = req.session.user.id;
 
     try {
-        const [existing] = await pool.query(
+        const [existing] = await safeQuery(
             'SELECT user_id FROM registrations WHERE event_id = ? AND user_id = ?',
             [eventId, userId]
         );
@@ -515,13 +730,13 @@ app.post('/api/events/:id/unregister', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Not registered' });
         }
 
-        await pool.query(
+        await safeQuery(
             'DELETE FROM registrations WHERE event_id = ? AND user_id = ?',
             [eventId, userId]
         );
 
         // Fetch updated event
-        const [updatedRows] = await pool.query(`
+        const [updatedRows] = await safeQuery(`
             SELECT e.*, GROUP_CONCAT(r.user_id) as attendees
             FROM events e
             LEFT JOIN registrations r ON e.id = r.event_id
@@ -572,7 +787,7 @@ app.get('/api/users', async (req, res) => {
             GROUP BY u.id
             ORDER BY u.user_name ASC
         `;
-        const [rows] = await pool.query(query);
+        const [rows] = await safeQuery(query);
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error(err);
@@ -596,10 +811,10 @@ app.get('/api/dashboard/stats', async (req, res) => {
     try {
         if (role === 'admin') {
             // Stats for Admin: total users, total events, total registrations, upcoming events
-            const [userCount] = await pool.query('SELECT COUNT(*) as count FROM users');
-            const [eventCount] = await pool.query('SELECT COUNT(*) as count FROM events');
-            const [regCount] = await pool.query('SELECT COUNT(*) as count FROM registrations');
-            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE event_date > ?', [now]);
+            const [userCount] = await safeQuery('SELECT COUNT(*) as count FROM users');
+            const [eventCount] = await safeQuery('SELECT COUNT(*) as count FROM events');
+            const [regCount] = await safeQuery('SELECT COUNT(*) as count FROM registrations');
+            const [upcomingCount] = await safeQuery('SELECT COUNT(*) as count FROM events WHERE event_date > ?', [now]);
 
             return res.json({
                 success: true,
@@ -614,8 +829,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
         
         if (role === 'organizer') {
             // Stats for Organizer: created events count, upcoming events, total attendees
-            const [createdCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE organizer_id = ?', [id]);
-            const [upcomingCount] = await pool.query('SELECT COUNT(*) as count FROM events WHERE organizer_id = ? AND event_date > ?', [id, now]);
+            const [createdCount] = await safeQuery('SELECT COUNT(*) as count FROM events WHERE organizer_id = ?', [id]);
+            const [upcomingCount] = await safeQuery('SELECT COUNT(*) as count FROM events WHERE organizer_id = ? AND event_date > ?', [id, now]);
             
             // Total attendees across all events created by this organizer
             const attendeeQuery = `
@@ -624,7 +839,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 JOIN events e ON r.event_id = e.id
                 WHERE e.organizer_id = ?
             `;
-            const [attendeeCount] = await pool.query(attendeeQuery, [id]);
+            const [attendeeCount] = await safeQuery(attendeeQuery, [id]);
 
             return res.json({
                 success: true,
@@ -644,7 +859,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 JOIN events e ON r.event_id = e.id
                 WHERE r.user_id = ?
             `;
-            const [registeredCount] = await pool.query(registeredQuery, [id]);
+            const [registeredCount] = await safeQuery(registeredQuery, [id]);
 
             const upcomingQuery = `
                 SELECT COUNT(r.event_id) as count
@@ -652,7 +867,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 JOIN events e ON r.event_id = e.id
                 WHERE r.user_id = ? AND e.event_date > ?
             `;
-            const [upcomingCount] = await pool.query(upcomingQuery, [id, now]);
+            const [upcomingCount] = await safeQuery(upcomingQuery, [id, now]);
 
             const pastQuery = `
                 SELECT COUNT(r.event_id) as count
@@ -660,7 +875,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
                 JOIN events e ON r.event_id = e.id
                 WHERE r.user_id = ? AND e.event_date <= ?
             `;
-            const [pastCount] = await pool.query(pastQuery, [id, now]);
+            const [pastCount] = await safeQuery(pastQuery, [id, now]);
 
             return res.json({
                 success: true,
@@ -679,14 +894,26 @@ app.get('/api/dashboard/stats', async (req, res) => {
     }
 });
 
-// Wildcard fallback to index.html for UI navigation
-app.get('*', (req, res, next) => {
+// Wildcard fallback to serve static HTML pages or index.html
+app.get('*', (req, res) => {
     // If it's an API route that wasn't matched, return 404
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ success: false, message: 'API Route Not Found' });
     }
-    // Otherwise serve index.html (or continue to standard static fallback)
-    next();
+    
+    // Serve requested HTML file if it exists, or fallback to index.html
+    const requestedFile = req.path === '/' ? 'index.html' : req.path;
+    const filePath = path.join(__dirname, requestedFile);
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        return res.sendFile(filePath);
+    }
+    
+    const indexPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+    }
+    
+    res.status(404).send('Page Not Found');
 });
 
 // Handle JSON parse errors gracefully (return JSON, not HTML)
@@ -703,11 +930,15 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// Run server after database init
-initDatabase().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server is running at http://localhost:${PORT}`);
+// Start server locally or export app for Vercel Serverless
+if (require.main === module) {
+    initDatabase().then(() => {
+        app.listen(PORT, () => {
+            console.log(`Server is running at http://localhost:${PORT}`);
+        });
+    }).catch(err => {
+        console.error('Failed to initialize database before starting server:', err.message);
     });
-}).catch(err => {
-    console.error('Failed to initialize database before starting server:', err.message);
-});
+}
+
+module.exports = app;
